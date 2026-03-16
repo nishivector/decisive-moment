@@ -610,7 +610,7 @@ function updateMusic(dt) {
 }
 
 // ─── DOM Elements ─────────────────────────────────────────────────────────────
-const startScreen = document.getElementById('start-screen');
+const startScreen = document.getElementById('startScreen');
 const instructionsScreen = document.getElementById('instructions-screen');
 const gameUI = document.getElementById('game-ui');
 const shotFeedback = document.getElementById('shot-feedback');
@@ -1480,7 +1480,7 @@ function showInstructions() {
 startScreen.addEventListener('pointerdown', (e) => {
   e.preventDefault();
   if (gameState !== 'start') return;
-  initAudio().catch(() => {});
+  try { initAudio(); } catch(err) {}
   showInstructions();
 });
 
