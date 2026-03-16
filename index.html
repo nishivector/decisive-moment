@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Decisive Moment</title>
+  <!-- Tone.js FIRST, before importmap -->
+  <script src="https://cdn.jsdelivr.net/npm/tone@15.1.22/build/Tone.js"></script>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.183.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.183.0/examples/jsm/"
+    }
+  }
+  </script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #1a1208;
+      overflow: hidden;
+      font-family: 'Courier New', monospace;
+    }
+    canvas {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      touch-action: none;
+      display: block;
+    }
+    #ui-overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 10;
+    }
+    #start-screen {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 20;
+      pointer-events: all;
+      cursor: pointer;
+    }
+    #instructions-screen {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 20;
+      pointer-events: all;
+      cursor: pointer;
+      display: none;
+      background: rgba(26, 18, 8, 0.92);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+    }
+    #instructions-screen.hidden { display: none; }
+    .instructions-content {
+      color: #E8D5B0;
+      text-align: center;
+      padding: 40px;
+      max-width: 500px;
+    }
+    .instructions-title {
+      font-size: clamp(14px, 3vw, 20px);
+      letter-spacing: 6px;
+      color: #2C5F4A;
+      margin-bottom: 32px;
+      text-transform: uppercase;
+    }
+    .instructions-line {
+      font-size: clamp(11px, 2vw, 14px);
+      letter-spacing: 2px;
+      color: #E8D5B0;
+      margin-bottom: 16px;
+      opacity: 0.85;
+      line-height: 1.6;
+    }
+    .instructions-sub {
+      font-size: clamp(9px, 1.5vw, 11px);
+      letter-spacing: 4px;
+      color: #F4A822;
+      margin-top: 32px;
+      opacity: 0.7;
+      animation: blink 2s infinite;
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 0.7; }
+      50% { opacity: 0.2; }
+    }
+    #game-ui {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 10;
+      display: none;
+    }
+    #shot-feedback {
+      position: absolute;
+      left: 50%;
+      top: 20%;
+      transform: translateX(-50%);
+      font-size: clamp(16px, 3vw, 24px);
+      letter-spacing: 4px;
+      font-family: 'Courier New', monospace;
+      opacity: 0;
+      pointer-events: none;
+      text-align: center;
+      z-index: 30;
+    }
+    #level-complete {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 40;
+      background: rgba(26, 18, 8, 0.95);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: all;
+    }
+    #level-complete.visible { display: flex; }
+    .contact-sheet-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 4px;
+      margin: 20px 0;
+      width: min(360px, 80vw);
+    }
+    .contact-thumb {
+      width: 100%;
+      aspect-ratio: 3/2;
+      border-radius: 2px;
+      border: 1px solid #333;
+      position: relative;
+    }
+    .contact-thumb.top3 {
+      border: 2px solid #F4A822;
+      box-shadow: 0 0 6px #F4A822;
+    }
+    .contact-thumb.top3::after {
+      content: '★';
+      position: absolute;
+      top: -8px;
+      right: -4px;
+      color: #F4A822;
+      font-size: 8px;
+    }
+    #gallery-screen {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 50;
+      background: #f0ece4;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: all;
+    }
+    #gallery-screen.visible { display: flex; }
+    #game-over {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 40;
+      background: rgba(26, 18, 8, 0.97);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: all;
+    }
+    #game-over.visible { display: flex; }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <canvas id="overlay2d" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:15;pointer-events:none;"></canvas>
+
+  <!-- Start Screen SVG overlay -->
+  <div id="start-screen">
+    <svg id="title-svg" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <filter id="glow">
+          <feGaussianBlur stdDeviation="4" result="blur"/>
+          <feMerge>
+            <feMergeNode in="blur"/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+        <filter id="cam-shadow">
+          <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#2C5F4A" flood-opacity="0.3"/>
+        </filter>
+      </defs>
+      <!-- Title -->
+      <g id="title-group" opacity="0" style="transition:none">
+        <text id="title-text"
+          x="50%" y="38%"
+          text-anchor="middle"
+          font-family="'Courier New', monospace"
+          font-size="28px"
+          font-weight="normal"
+          letter-spacing="8"
+          fill="#2C5F4A"
+          filter="url(#glow)"
+          opacity="0.92"
+        >DECISIVE MOMENT</text>
+        <text
+          x="50%" y="46%"
+          text-anchor="middle"
+          font-family="'Courier New', monospace"
+          font-size="11px"
+          letter-spacing="4"
+          fill="#8B6B47"
+          opacity="0.7"
+        >a game by mara</text>
+      </g>
+      <!-- Camera silhouette (Option B) -->
+      <g id="camera-svg" filter="url(#cam-shadow)" opacity="0">
+        <!-- Body rect centered at 50%, 54% -->
+        <g id="cam-center" transform="translate(0,0)">
+          <rect id="cam-body" x="-24" y="-16" width="48" height="32" rx="3"
+            stroke="#2C5F4A" stroke-width="1.5" fill="none"/>
+          <circle id="cam-lens" cx="0" cy="2" r="10"
+            stroke="#2C5F4A" stroke-width="1.5" fill="none"/>
+          <circle id="cam-inner" cx="0" cy="2" r="6"
+            stroke="#F4A822" stroke-width="1" fill="none" opacity="0.6"/>
+          <rect x="14" y="-16" width="8" height="6"
+            stroke="#2C5F4A" stroke-width="1" fill="none"/>
+          <line x1="-3" y1="-16" x2="3" y2="-16"
+            stroke="#2C5F4A" stroke-width="2"/>
+        </g>
+      </g>
+      <!-- Press anywhere prompt -->
+      <text id="press-prompt"
+        x="50%" y="72%"
+        text-anchor="middle"
+        font-family="'Courier New', monospace"
+        font-size="10px"
+        letter-spacing="3"
+        fill="#8B6B47"
+        opacity="0"
+      >PRESS ANYWHERE TO BEGIN</text>
+    </svg>
+  </div>
+
+  <!-- Instructions Screen -->
+  <div id="instructions-screen" class="hidden">
+    <div class="instructions-content">
+      <div class="instructions-title">How to Shoot</div>
+      <div class="instructions-line">WATCH the three elements in the scene</div>
+      <div class="instructions-line">When all three ALIGN — press the shutter</div>
+      <div class="instructions-line">12 frames per location. Make each one count.</div>
+      <div class="instructions-sub">TAP anywhere to shoot</div>
+    </div>
+  </div>
+
+  <!-- Game UI -->
+  <div id="game-ui">
+    <div id="shot-feedback"></div>
+  </div>
+
+  <!-- Level Complete -->
+  <div id="level-complete"></div>
+
+  <!-- Gallery Screen (Level 3) -->
+  <div id="gallery-screen"></div>
+
+  <!-- Game Over -->
+  <div id="game-over"></div>
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>
